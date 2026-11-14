@@ -28,14 +28,16 @@ fn run(args: &Args) -> anyhow::Result<()> {
     let files = git::tracked_files(&root)?;
 
     let mut langs: BTreeMap<String, (u64, u64)> = BTreeMap::new();
-    let mut per_file: Vec<(String, String, u64)> = Vec::new();
+    let mut per_file: Vec<(String, u64)> = Vec::new();
     for path in &files {
         if let Some(c) = counter::count_file(path)? {
-            let rel = path.strip_prefix(&root)?.to_string_lossy().into_owned();
-            let entry = langs.entry(c.language.clone()).or_insert((0, 0));
+            let entry = langs.entry(c.language).or_insert((0, 0));
             entry.0 += 1;
             entry.1 += c.lines;
-            per_file.push((c.language, rel, c.lines));
+            if args.files {
+                let rel = path.strip_prefix(&root)?.to_string_lossy().into_owned();
+                per_file.push((rel, c.lines));
+            }
         }
     }
 
@@ -50,11 +52,23 @@ fn run(args: &Args) -> anyhow::Result<()> {
     println!("{:<12} {:>5} {:>6}", "Total", total_files, total_lines);
 
     if args.files {
-        per_file.sort();
+        per_file.sort_by(|a, b| a.0.cmp(&b.0));
+        let path_width = per_file
+            .iter()
+            .map(|(rel, _)| rel.chars().count())
+            .max()
+            .unwrap_or(0)
+            .max(39);
+        let num_width = per_file
+            .iter()
+            .map(|(_, lines)| lines.checked_ilog10().unwrap_or(0) as usize + 1)
+            .max()
+            .unwrap_or(0)
+            .max(6);
         println!();
         println!("Files:");
-        for (_lang, rel, lines) in &per_file {
-            println!("  {:<40}{:>6}", rel, lines);
+        for (rel, lines) in &per_file {
+            println!("  {:<path_width$} {:>num_width$}", rel, lines);
         }
     }
     Ok(())

@@ -77,6 +77,14 @@ lang_case!(
 );
 
 lang_case!(
+    tsx_jsx_comments_and_literal_text,
+    "App.tsx",
+    "export function Help() {\n  // line comment\n  return (\n    <pre>\n      {\n        /* comment inside jsx expression */\n        value\n      }\n      // literal text in JSX\n      /* also literal text */\n    </pre>\n  );\n}\n",
+    11,
+    "typescript"
+);
+
+lang_case!(
     c_comments,
     "m.c",
     "#include <stdio.h>\n// comment\nint main() { return 0; }\n",
