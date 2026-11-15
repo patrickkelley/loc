@@ -64,6 +64,38 @@ fn files_flag_prints_per_file_breakdown() {
 }
 
 #[test]
+fn files_flag_sorts_by_path_and_aligns_long_paths() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("a_script.sh"), "echo hi\n").unwrap();
+    std::fs::write(dir.path().join("z_main.c"), "int main() { return 0; }\n").unwrap();
+    let nested = dir
+        .path()
+        .join("very/long/nested/directory/path/for/testing");
+    std::fs::create_dir_all(&nested).unwrap();
+    std::fs::write(nested.join("module.rs"), "fn a() {}\nfn b() {}\n").unwrap();
+    init_repo(dir.path());
+
+    let out = run(dir.path(), &["--files"]);
+    let files_section = out.split("\nFiles:\n").nth(1).expect("Files section");
+    let rows: Vec<&str> = files_section.lines().collect();
+    assert_eq!(rows.len(), 3);
+
+    // Must sort alphabetically by path, not by hidden language name ("c" < "rust" < "shell").
+    assert!(rows[0].trim_start().starts_with("a_script.sh "));
+    assert!(
+        rows[1]
+            .trim_start()
+            .starts_with("very/long/nested/directory/path/for/testing/module.rs ")
+    );
+    assert!(rows[2].trim_start().starts_with("z_main.c "));
+
+    // Every row in the Files section should right-align numbers to the same column width.
+    let widths: Vec<usize> = rows.iter().map(|r| r.len()).collect();
+    assert_eq!(widths[0], widths[1], "misaligned rows:\n{files_section}");
+    assert_eq!(widths[1], widths[2], "misaligned rows:\n{files_section}");
+}
+
+#[test]
 fn version_flag_prints_version() {
     let dir = tempfile::tempdir().unwrap();
     let out = run(dir.path(), &["--version"]);
@@ -98,6 +130,76 @@ fn errors_with_nonzero_exit_outside_repo() {
 fn empty_repo_prints_zero_total() {
     let dir = tempfile::tempdir().unwrap();
     init_repo(dir.path());
+    let out = run(dir.path(), &[]);
+    let expected = concat!("Language     Files  Lines\n", "Total            0      0\n",);
+    assert_eq!(out, expected);
+}
+
+#[test]
+fn skips_deleted_files_symlinks_and_submodules() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("keep.rs"), "fn main() {}\n").unwrap();
+    std::fs::write(dir.path().join("deleted.rs"), "fn gone() {}\n").unwrap();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::symlink;
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+        symlink("keep.rs", dir.path().join("dup.rs")).unwrap();
+        symlink("nope.rs", dir.path().join("broken.rs")).unwrap();
+        symlink("sub", dir.path().join("dir_link")).unwrap();
+    }
+
+    init_repo(dir.path());
+    std::fs::remove_file(dir.path().join("deleted.rs")).unwrap();
+
+    // Register a gitlink (submodule, mode 160000) backed by a real directory on disk.
+    let submod = dir.path().join("submod");
+    std::fs::create_dir(&submod).unwrap();
+    let status = std::process::Command::new("git")
+        .args([
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            "160000,1111111111111111111111111111111111111111,submod",
+        ])
+        .current_dir(dir.path())
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let out = run(dir.path(), &[]);
+    let expected = concat!(
+        "Language     Files  Lines\n",
+        "rust             1      1\n",
+        "Total            1      1\n",
+    );
+    assert_eq!(out, expected);
+}
+
+#[test]
+fn files_flag_handles_zero_line_files() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("empty.rs"), "").unwrap();
+    std::fs::write(dir.path().join("blank.txt"), "\n\n").unwrap();
+    init_repo(dir.path());
+
+    let out = run(dir.path(), &["--files"]);
+    assert!(out.contains("empty.rs"), "--files should list it: {out}");
+    assert!(out.contains("blank.txt"), "--files should list it: {out}");
+    let files_section = out.split("\nFiles:\n").nth(1).expect("Files section");
+    assert!(
+        files_section.contains(" 0"),
+        "zero-line files must print 0 without panicking: {files_section}"
+    );
+}
+
+#[test]
+fn binary_only_repo_prints_zero_total() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("blob.rs"), b"\x00\x01\xff").unwrap();
+    init_repo(dir.path());
+
     let out = run(dir.path(), &[]);
     let expected = concat!("Language     Files  Lines\n", "Total            0      0\n",);
     assert_eq!(out, expected);
