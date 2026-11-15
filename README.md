@@ -65,6 +65,7 @@ Total           16   1267
 | C          | `.c`, `.h`                                   |
 | C++        | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx` |
 | Java       | `.java`                                      |
+| Gosu       | `.gs`, `.gsp`, `.gsx`, `.gst`                |
 | Ruby       | `.rb`                                        |
 | Shell      | `.sh`, `.bash`                               |
 

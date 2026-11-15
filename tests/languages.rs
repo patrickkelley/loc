@@ -107,3 +107,11 @@ lang_case!(
     5,
     "gosu"
 );
+
+lang_case!(
+    gosu_template_comments,
+    "T.gst",
+    "<%@ params(name: String) %>\n<%-- template\n     comment --%>\nHello ${name}\n<%\n   // scriptlet comment\n   print(\"http://x//no\")\n%>\n",
+    5,
+    "gosu"
+);

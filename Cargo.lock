@@ -539,7 +539,8 @@ dependencies = [
 [[package]]
 name = "tree-sitter-gosu"
 version = "0.1.0"
-source = "git+https://github.com/patrickkelley/tree-sitter-gosu#9315b8e933a03cd418853f990b5e39285c5394a2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3290768d35207773b1f1d6c774f12d44765b7e0231be7c238c2f2d1c3fbc3620"
 dependencies = [
  "cc",
  "tree-sitter-language",

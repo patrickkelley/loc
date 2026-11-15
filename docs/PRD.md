@@ -45,6 +45,7 @@ for comments.
 | C           | `.c`, `.h`                                   |
 | C++         | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx` |
 | Java        | `.java`                                      |
+| Gosu        | `.gs`, `.gsp`, `.gsx`, `.gst`                |
 | Ruby        | `.rb`                                        |
 | Shell       | `.sh`, `.bash`                               |
 
@@ -94,7 +95,7 @@ Every unit of work follows red-green-refactor:
 - Runtime: `clap` (derive), `tree-sitter`, grammar crates: `tree-sitter-rust`,
   `tree-sitter-python`, `tree-sitter-javascript`, `tree-sitter-typescript`,
   `tree-sitter-go`, `tree-sitter-c`, `tree-sitter-cpp`, `tree-sitter-java`,
-  `tree-sitter-ruby`, `tree-sitter-bash`.
+  `tree-sitter-gosu`, `tree-sitter-ruby`, `tree-sitter-bash`.
 - Dev: `assert_cmd`, `predicates`, `tempfile`.
 
 ## Module structure
