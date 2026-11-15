@@ -145,3 +145,28 @@ fn handles_non_utf8_repo_path() {
     let files = loc::git::tracked_files(&root).unwrap();
     assert_eq!(files, vec![non_utf8.join("main.rs")]);
 }
+
+#[test]
+fn tracked_files_errors_outside_repo() {
+    let dir = tempfile::tempdir().unwrap();
+    // No git repo here: `git ls-files` must fail and be surfaced as an error.
+    let res = loc::git::tracked_files(dir.path());
+    assert!(
+        res.is_err(),
+        "expected ls-files failure outside a repo, got: {res:?}"
+    );
+}
+
+#[test]
+fn tracked_file_replaced_by_directory_is_skipped() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("flipped.rs"), "fn main() {}\n").unwrap();
+    init_repo(dir.path());
+
+    // After commit, replace the tracked file with a directory of the same name.
+    std::fs::remove_file(dir.path().join("flipped.rs")).unwrap();
+    std::fs::create_dir(dir.path().join("flipped.rs")).unwrap();
+
+    let files = loc::git::tracked_files(dir.path()).unwrap();
+    assert_eq!(files, Vec::<std::path::PathBuf>::new());
+}

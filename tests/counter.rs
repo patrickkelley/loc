@@ -134,3 +134,134 @@ fn counts_heavily_commented_file_quickly() {
         "counting 10k lines / 5k comments took too long: {elapsed:?}"
     );
 }
+
+#[test]
+fn crlf_line_endings_count_code_lines_only() {
+    let src = "fn main() {\r\n    // comment\r\n    let x = 1;\r\n\r\n}\r\n";
+    // code lines: "fn main() {", "let x = 1;", "}"
+    assert_eq!(count(src), 3);
+}
+
+#[test]
+fn missing_trailing_newline_counts_last_code_line() {
+    assert_eq!(count("fn main() {}"), 1);
+    // a comment-only last line without newline is still excluded
+    assert_eq!(count("let x = 1;\n// trailing comment"), 1);
+    // code glued to a block comment without newline is counted
+    assert_eq!(count("/* c */ let y = 2;"), 1);
+}
+
+#[test]
+fn empty_and_whitespace_only_files_count_zero() {
+    assert_eq!(count(""), 0);
+    assert_eq!(count("\n\n\n"), 0);
+    assert_eq!(count("\t \n \t\n"), 0);
+}
+
+#[test]
+fn invalid_utf8_bytes_count_as_code_in_fallback() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("weird.log");
+    std::fs::write(&path, b"\xff\xfe\n\nok\n").unwrap();
+    let c = count_file(&path).unwrap().unwrap();
+    assert_eq!(c.language, "other");
+    // lossy conversion: 2 replacement chars = line 1, "ok" = line 3
+    assert_eq!(c.lines, 2);
+}
+
+#[test]
+fn nul_after_first_kb_is_still_text() {
+    // R4: only a NUL byte in the FIRST KB marks a file as binary.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("late_nul.txt");
+    let mut bytes = vec![b'a'; 1100];
+    bytes[1024] = 0;
+    bytes.push(b'\n');
+    std::fs::write(&path, &bytes).unwrap();
+    let c = count_file(&path).unwrap();
+    assert!(
+        c.is_some(),
+        "NUL byte after the first KB must not mark the file binary"
+    );
+    assert_eq!(c.unwrap().lines, 1);
+}
+
+#[test]
+fn extensionless_and_non_utf8_named_files_fall_back_to_other() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let makefile = dir.path().join("Makefile");
+    std::fs::write(&makefile, "all:\n\n\techo hi\n").unwrap();
+    let c = count_file(&makefile).unwrap().unwrap();
+    assert_eq!(c.language, "other");
+    assert_eq!(c.lines, 2);
+
+    #[cfg(unix)]
+    {
+        // extension exists but is not valid UTF-8, so detection falls back too
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+        let odd = dir.path().join(OsStr::from_bytes(b"blob.\xff"));
+        std::fs::write(&odd, "x\n").unwrap();
+        let c = count_file(&odd).unwrap().unwrap();
+        assert_eq!(c.language, "other");
+        assert_eq!(c.lines, 1);
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn permission_denied_on_parent_dir_is_error() {
+    use std::os::unix::fs::PermissionsExt;
+
+    struct RestorePerms(std::path::PathBuf);
+    impl Drop for RestorePerms {
+        fn drop(&mut self) {
+            let _ = std::fs::set_permissions(&self.0, std::fs::Permissions::from_mode(0o755));
+        }
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let locked = dir.path().join("locked");
+    std::fs::create_dir(&locked).unwrap();
+    std::fs::write(locked.join("secret.rs"), "fn main() {}\n").unwrap();
+
+    let _guard = RestorePerms(locked.clone());
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+
+    // Skip if running with elevated privileges where chmod 000 does not block stat.
+    if std::fs::symlink_metadata(locked.join("secret.rs")).is_ok() {
+        return;
+    }
+
+    let res = count_file(&locked.join("secret.rs"));
+    assert!(res.is_err(), "expected permission error, got: {res:?}");
+}
+
+#[cfg(unix)]
+#[test]
+fn permission_denied_on_file_open_is_error() {
+    use std::os::unix::fs::PermissionsExt;
+
+    struct RestorePerms(std::path::PathBuf);
+    impl Drop for RestorePerms {
+        fn drop(&mut self) {
+            let _ = std::fs::set_permissions(&self.0, std::fs::Permissions::from_mode(0o644));
+        }
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("locked.rs");
+    std::fs::write(&path, "fn main() {}\n").unwrap();
+
+    let _guard = RestorePerms(path.clone());
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
+
+    // Skip if running with elevated privileges where chmod 000 does not block open.
+    if std::fs::read(&path).is_ok() {
+        return;
+    }
+
+    let res = count_file(&path);
+    assert!(res.is_err(), "expected permission error, got: {res:?}");
+}

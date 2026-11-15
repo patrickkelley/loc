@@ -176,3 +176,31 @@ fn skips_deleted_files_symlinks_and_submodules() {
     );
     assert_eq!(out, expected);
 }
+
+#[test]
+fn files_flag_handles_zero_line_files() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("empty.rs"), "").unwrap();
+    std::fs::write(dir.path().join("blank.txt"), "\n\n").unwrap();
+    init_repo(dir.path());
+
+    let out = run(dir.path(), &["--files"]);
+    assert!(out.contains("empty.rs"), "--files should list it: {out}");
+    assert!(out.contains("blank.txt"), "--files should list it: {out}");
+    let files_section = out.split("\nFiles:\n").nth(1).expect("Files section");
+    assert!(
+        files_section.contains(" 0"),
+        "zero-line files must print 0 without panicking: {files_section}"
+    );
+}
+
+#[test]
+fn binary_only_repo_prints_zero_total() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("blob.rs"), b"\x00\x01\xff").unwrap();
+    init_repo(dir.path());
+
+    let out = run(dir.path(), &[]);
+    let expected = concat!("Language     Files  Lines\n", "Total            0      0\n",);
+    assert_eq!(out, expected);
+}
