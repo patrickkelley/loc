@@ -43,8 +43,15 @@ pub fn tracked_files(root: &Path) -> anyhow::Result<Vec<PathBuf>> {
         }
         let rel = bytes_to_path(&entry[tab + 1..])?;
         let full = root.join(rel);
-        if std::fs::symlink_metadata(&full).is_ok_and(|m| m.is_file()) {
-            paths.push(full);
+        match std::fs::symlink_metadata(&full) {
+            Ok(m) if m.is_file() => paths.push(full),
+            Ok(_) => {}
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+                ) => {}
+            Err(e) => return Err(e.into()),
         }
     }
     paths.dedup();

@@ -153,6 +153,21 @@ fn skips_deleted_files_symlinks_and_submodules() {
     init_repo(dir.path());
     std::fs::remove_file(dir.path().join("deleted.rs")).unwrap();
 
+    // Register a gitlink (submodule, mode 160000) backed by a real directory on disk.
+    let submod = dir.path().join("submod");
+    std::fs::create_dir(&submod).unwrap();
+    let status = std::process::Command::new("git")
+        .args([
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            "160000,1111111111111111111111111111111111111111,submod",
+        ])
+        .current_dir(dir.path())
+        .status()
+        .unwrap();
+    assert!(status.success());
+
     let out = run(dir.path(), &[]);
     let expected = concat!(
         "Language     Files  Lines\n",

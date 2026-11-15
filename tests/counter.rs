@@ -62,6 +62,10 @@ fn skips_missing_directory_and_symlink_entries() {
     std::fs::create_dir(&sub).unwrap();
     assert!(count_file(&sub).unwrap().is_none());
 
+    let regular = dir.path().join("regular_file");
+    std::fs::write(&regular, "fn main() {}\n").unwrap();
+    assert!(count_file(&regular.join("child.rs")).unwrap().is_none());
+
     #[cfg(unix)]
     {
         let target = dir.path().join("real.rs");

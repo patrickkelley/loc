@@ -12,12 +12,26 @@ pub fn count_file(path: &Path) -> anyhow::Result<Option<Count>> {
     let meta = match std::fs::symlink_metadata(path) {
         Ok(m) if m.is_file() => m,
         Ok(_) => return Ok(None),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e)
+            if matches!(
+                e.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+            ) =>
+        {
+            return Ok(None);
+        }
         Err(e) => return Err(e.into()),
     };
     let mut file = match std::fs::File::open(path) {
         Ok(f) => f,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e)
+            if matches!(
+                e.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+            ) =>
+        {
+            return Ok(None);
+        }
         Err(e) => return Err(e.into()),
     };
     let mut bytes = Vec::with_capacity(meta.len().min(1024) as usize);
