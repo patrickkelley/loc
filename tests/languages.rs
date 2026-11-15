@@ -99,3 +99,11 @@ lang_case!(
     1,
     "cpp"
 );
+
+lang_case!(
+    gosu_comments,
+    "A.gs",
+    "class A {\n    // note\n    function greet() {\n        var s = \"http://x//no\"\n    }\n    /* block\n       span */\n}\n",
+    5,
+    "gosu"
+);
