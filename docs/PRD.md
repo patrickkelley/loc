@@ -49,8 +49,15 @@ for comments.
 | Shell       | `.sh`, `.bash`                               |
 
 ### R4 — Fallbacks
-- Unknown extension → counted as non-blank lines, reported under `other`.
-- Binary file (NUL byte in first KB) → skipped entirely, not an error.
+- Unknown extension → counted as non-blank lines (comments are *not*
+  excluded), reported under `other`.
+- Binary file → skipped entirely, not an error. A file is binary when:
+  - it starts with a UTF-16 BOM (`FF FE` / `FE FF`), or
+  - it contains a NUL byte in the first KB **and** the first KB does not
+    decode as valid UTF-8. If the first KB decodes as valid UTF-8, the file
+    is text and the NUL is treated as a code character — true binaries
+    (`.class`, images, archives) still get skipped because their first KB
+    contains invalid UTF-8 beyond the NUL.
 
 ### R5 — CLI
 - `loc` — count the repo found from cwd.
@@ -107,4 +114,7 @@ tests/         — integration tests (temp git repo fixtures)
 - Counts verified against hand-checked fixtures: strings with comment
   markers, block comments, docstrings, binaries, ignored/untracked files,
   non-repo directories.
+- Fixtures for the R4 binary rule: a text file with an embedded NUL in a
+  string literal (counted as text), a UTF-16 BOM file (skipped), and a real
+  binary blob (skipped).
 - Manual run on a real repo produces sane counts.

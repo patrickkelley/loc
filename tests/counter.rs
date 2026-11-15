@@ -90,6 +90,7 @@ fn handles_files_larger_than_1kb_for_text_and_binary() {
     let bin_path = dir.path().join("large_bin.rs");
     let mut bin = vec![b'a'; 4096];
     bin[512] = 0;
+    bin[513] = 0xFF; // invalid UTF-8 beyond the NUL: a true binary, not embedded-NUL text
     std::fs::write(&bin_path, &bin).unwrap();
     assert!(count_file(&bin_path).unwrap().is_none());
 }
@@ -162,7 +163,8 @@ fn empty_and_whitespace_only_files_count_zero() {
 fn invalid_utf8_bytes_count_as_code_in_fallback() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("weird.log");
-    std::fs::write(&path, b"\xff\xfe\n\nok\n").unwrap();
+    // \xff\xfd is invalid UTF-8 without being a UTF-16 BOM (unlike \xff\xfe).
+    std::fs::write(&path, b"\xff\xfd\n\nok\n").unwrap();
     let c = count_file(&path).unwrap().unwrap();
     assert_eq!(c.language, "other");
     // lossy conversion: 2 replacement chars = line 1, "ok" = line 3
@@ -184,6 +186,36 @@ fn nul_after_first_kb_is_still_text() {
         "NUL byte after the first KB must not mark the file binary"
     );
     assert_eq!(c.unwrap().lines, 1);
+}
+
+#[test]
+fn embedded_nul_in_utf8_text_is_counted() {
+    // Same shape as checkstyle's InputEmbeddedNullChar.java: a valid UTF-8
+    // source file whose string literal contains an embedded NUL character.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("embedded_nul.java");
+    let src = "class A {\n    String s = \"before\u{0}after\";\n}\n";
+    std::fs::write(&path, src).unwrap();
+    let c = count_file(&path).unwrap().unwrap();
+    assert_eq!(c.language, "java");
+    assert_eq!(c.lines, 3);
+}
+
+#[test]
+fn utf16_bom_file_is_skipped() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let le_path = dir.path().join("utf16le.java");
+    let mut le = vec![0xFF, 0xFE];
+    le.extend("class A {}\n".encode_utf16().flat_map(u16::to_le_bytes));
+    std::fs::write(&le_path, &le).unwrap();
+    assert!(count_file(&le_path).unwrap().is_none());
+
+    let be_path = dir.path().join("utf16be.rs");
+    let mut be = vec![0xFE, 0xFF];
+    be.extend("fn main() {}\n".encode_utf16().flat_map(u16::to_be_bytes));
+    std::fs::write(&be_path, &be).unwrap();
+    assert!(count_file(&be_path).unwrap().is_none());
 }
 
 #[test]

@@ -36,7 +36,15 @@ pub fn count_file(path: &Path) -> anyhow::Result<Option<Count>> {
     };
     let mut bytes = Vec::with_capacity(meta.len().min(1024) as usize);
     (&mut file).take(1024).read_to_end(&mut bytes)?;
-    if bytes.contains(&0) {
+    if bytes.starts_with(&[0xFF, 0xFE]) || bytes.starts_with(&[0xFE, 0xFF]) {
+        // UTF-16 BOM: text encoded as UTF-16, not countable as UTF-8 lines.
+        return Ok(None);
+    }
+    // A NUL byte in the first KB marks the file as binary, unless the first
+    // KB decodes as valid UTF-8 — a text file may legitimately embed a NUL
+    // (e.g. "\u0000" inside a string literal). True binaries still fail
+    // UTF-8 validation beyond the NUL and get skipped.
+    if bytes.contains(&0) && std::str::from_utf8(&bytes).is_err() {
         return Ok(None);
     }
     if bytes.len() == 1024 {
