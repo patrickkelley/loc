@@ -297,3 +297,28 @@ fn permission_denied_on_file_open_is_error() {
     let res = count_file(&path);
     assert!(res.is_err(), "expected permission error, got: {res:?}");
 }
+
+#[test]
+fn deeply_nested_ast_does_not_overflow_stack() {
+    // Mirrors checkstyle's InputXpathMapperStringConcat.java (~39k chained `+`
+    // operators), which parses into a left-recursive binary_expression AST
+    // ~40k nodes deep.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("Deep.java");
+    let mut src = String::from(
+        "public class Deep {\n    void f() {\n        // leading comment\n        String s = \"a\"",
+    );
+    for i in 0..40_000 {
+        if i % 20 == 0 {
+            src.push_str(" +\n            \"a\"");
+        } else {
+            src.push_str(" + \"a\"");
+        }
+    }
+    src.push_str(";\n        /* trailing comment */\n    }\n}\n");
+    std::fs::write(&path, &src).unwrap();
+
+    let c = count_file(&path).unwrap().unwrap();
+    assert_eq!(c.language, "java");
+    assert_eq!(c.lines, 2_005);
+}

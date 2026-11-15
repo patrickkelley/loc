@@ -103,18 +103,21 @@ fn count_lines(src: &str, comment_ranges: &[(usize, usize)]) -> u64 {
     total
 }
 
-fn collect_comment_ranges(node: tree_sitter::Node, out: &mut Vec<(usize, usize)>) {
-    if node.kind().contains("comment") {
-        out.push((node.start_byte(), node.end_byte()));
-        return;
-    }
-    let mut cursor = node.walk();
-    if cursor.goto_first_child() {
+fn collect_comment_ranges(root: tree_sitter::Node, out: &mut Vec<(usize, usize)>) {
+    let mut cursor = root.walk();
+    loop {
+        let node = cursor.node();
+        if node.kind().contains("comment") {
+            out.push((node.start_byte(), node.end_byte()));
+        } else if cursor.goto_first_child() {
+            continue;
+        }
         loop {
-            let child = cursor.node();
-            collect_comment_ranges(child, out);
-            if !cursor.goto_next_sibling() {
+            if cursor.goto_next_sibling() {
                 break;
+            }
+            if !cursor.goto_parent() {
+                return;
             }
         }
     }
