@@ -99,3 +99,19 @@ lang_case!(
     1,
     "cpp"
 );
+
+lang_case!(
+    gosu_comments,
+    "A.gs",
+    "class A {\n    // note\n    function greet() {\n        var s = \"http://x//no\"\n    }\n    /* block\n       span */\n}\n",
+    5,
+    "gosu"
+);
+
+lang_case!(
+    gosu_template_comments,
+    "T.gst",
+    "<%@ params(name: String) %>\n<%-- template\n     comment --%>\nHello ${name}\n<%\n   // scriptlet comment\n   print(\"http://x//no\")\n%>\n",
+    5,
+    "gosu"
+);
