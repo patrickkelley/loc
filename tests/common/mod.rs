@@ -11,6 +11,6 @@ pub fn init_repo(dir: &Path) {
             .expect("git should be installed");
         assert!(status.success(), "git {args:?} failed");
     };
-    git(&["init", "-q"]);
+    git(&["init", "-q", "-b", "main"]);
     git(&["add", "-A"]);
 }
