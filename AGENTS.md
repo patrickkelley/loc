@@ -20,7 +20,7 @@ Integration tests are split by concern: `tests/git.rs` (repo discovery), `tests/
 
 - Integration and counter tests spawn real `git` and write temp dirs (`tempfile`); git must be on PATH. `tests/common/mod.rs` holds the shared `git init` fixture used by `tests/git.rs` and `tests/cli.rs` — reuse it, don't re-create one.
 - `tests/cli.rs` runs the built binary with `current_dir` pointed at a temp repo, so tests count the fixture repo, not this repo.
-- Comment exclusion relies on tree-sitter node kinds whose name contains `comment` (`src/counter.rs`). A grammar whose comment node is named differently (e.g. `line_comment`) would silently count comments as code — always add a fixture test for a new language.
+- Comment exclusion relies on tree-sitter node kinds whose name contains `comment` (`src/counter.rs`; JS/TS shebangs are additionally excluded via the `hash_bang_line` node). A grammar whose comment node is named differently would silently count comments as code — always add a fixture test for a new language.
 - Adding a language touches: `Cargo.toml` dep, `Lang` variant, extension map, `ts_language()`, `name()` in `src/langs.rs`, plus a `lang_case!` test. The extension set must match the PRD's R3 table.
 - Binary detection: a UTF-16 BOM (`FF FE`/`FE FF`), or a NUL byte in the first 1024 bytes when the first KB does not decode as valid UTF-8 (a text file embedding a NUL, e.g. in a string literal, is counted as text). Skipped files return `None`, not an error. Unknown extensions report as language `other` with non-blank-line counts — that is fallback behavior, not a bug.
 

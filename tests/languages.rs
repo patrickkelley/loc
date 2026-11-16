@@ -115,3 +115,51 @@ lang_case!(
     5,
     "gosu"
 );
+
+/// Guards the extension set against drift from the PRD R3 table: every
+/// documented extension must map, through the real `count_file` path, to its
+/// documented language name and count its single code line. The source
+/// "x\n" parses with errors for some grammars, but counting is text-based
+/// and always yields 1.
+#[test]
+fn prd_r3_extension_matrix_maps_every_extension_to_language() {
+    const R3: &[(&str, &str)] = &[
+        ("rs", "rust"),
+        ("py", "python"),
+        ("js", "javascript"),
+        ("mjs", "javascript"),
+        ("cjs", "javascript"),
+        ("jsx", "javascript"),
+        ("ts", "typescript"),
+        ("tsx", "typescript"),
+        ("go", "go"),
+        ("c", "c"),
+        ("h", "c"),
+        ("cpp", "cpp"),
+        ("cc", "cpp"),
+        ("cxx", "cpp"),
+        ("hpp", "cpp"),
+        ("hh", "cpp"),
+        ("hxx", "cpp"),
+        ("java", "java"),
+        ("gs", "gosu"),
+        ("gsp", "gosu"),
+        ("gsx", "gosu"),
+        ("gst", "gosu"),
+        ("rb", "ruby"),
+        ("sh", "shell"),
+        ("bash", "shell"),
+    ];
+    let dir = tempfile::tempdir().unwrap();
+    for &(ext, expected) in R3 {
+        let (lines, language) = count_in(&dir, &format!("f.{ext}"), "x\n");
+        assert_eq!(
+            language, expected,
+            "extension .{ext} should map to language {expected:?}"
+        );
+        assert_eq!(
+            lines, 1,
+            "extension .{ext} should count 1 line, got {lines}"
+        );
+    }
+}
