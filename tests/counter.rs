@@ -234,7 +234,11 @@ fn extensionless_and_non_utf8_named_files_fall_back_to_other() {
         use std::ffi::OsStr;
         use std::os::unix::ffi::OsStrExt;
         let odd = dir.path().join(OsStr::from_bytes(b"blob.\xff"));
-        std::fs::write(&odd, "x\n").unwrap();
+        // macOS APFS (and ZFS utf8only) reject invalid-UTF-8 filenames, so
+        // this fallback cannot occur there; skip like git.rs does.
+        if std::fs::write(&odd, "x\n").is_err() {
+            return;
+        }
         let c = count_file(&odd).unwrap().unwrap();
         assert_eq!(c.language, "other");
         assert_eq!(c.lines, 1);

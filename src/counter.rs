@@ -107,7 +107,7 @@ fn collect_comment_ranges(root: tree_sitter::Node, out: &mut Vec<(usize, usize)>
     let mut cursor = root.walk();
     loop {
         let node = cursor.node();
-        if node.kind().contains("comment") {
+        if node.kind().contains("comment") || node.kind() == "hash_bang_line" {
             out.push((node.start_byte(), node.end_byte()));
         } else if cursor.goto_first_child() {
             continue;

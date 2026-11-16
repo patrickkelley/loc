@@ -9,8 +9,14 @@ fn finds_toplevel_from_subdirectory() {
     std::fs::create_dir_all(&sub).unwrap();
     std::fs::write(sub.join("f.txt"), "x").unwrap();
 
-    let found = loc::git::find_toplevel(&sub);
-    assert_eq!(found.unwrap(), dir.path());
+    let found = loc::git::find_toplevel(&sub).unwrap();
+    // git prints the physical path: forward slashes and 8.3 names resolved
+    // on Windows, /var -> /private/var on macOS. Compare canonicalized so
+    // those spelling differences don't fail the assertion.
+    assert_eq!(
+        found.canonicalize().unwrap(),
+        dir.path().canonicalize().unwrap()
+    );
 }
 
 #[test]
